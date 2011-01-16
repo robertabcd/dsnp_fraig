@@ -152,12 +152,12 @@ void CirMgr::fileSim(ifstream &ifs) {
    }
 
    if(in_queue > 0) {
-      in_queue = 0;
-
       simulate(vin, result);
 
       for(int i = 0; i < in_queue; ++i)
          simulationResult(pattern[i], result[per_batch-in_queue+i]);
+
+      in_queue = 0;
    }
 
    printf("#FEC groups: %d\n", (int)fec_groups->size());
