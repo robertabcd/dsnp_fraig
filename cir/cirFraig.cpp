@@ -72,7 +72,53 @@ public:
    }
 };
 
+void CirMgr::FecGrouping() {
+   if(!fec_groups) {
+      vector<int> *s = new vector<int>();
+      for(int i = 0; i <= nMaxVar; ++i)
+         s->push_back(i);
+
+      fec_groups = new FECGrp();
+      fec_groups->push_back(s);
+   }
+
+   FECGrp *fec_new = new FECGrp();
+
+   while(fec_groups->size() > 0) {
+      vector<int> *s = fec_groups->back();
+      fec_groups->pop_back();
+      vector<int> *s0 = new vector<int>();
+      vector<int> *s1 = new vector<int>();
+
+      for(vector<int>::iterator it = s->begin(), ed = s->end();
+            it != ed; ++it) {
+         if(getVar(*it)->evaluate())
+            s1->push_back(*it);
+         else
+            s0->push_back(*it);
+      }
+
+      if(s0->size() <= 1)
+         delete s0;
+      else
+         fec_new->push_back(s0);
+
+      if(s1->size() <= 1)
+         delete s1;
+      else
+         fec_new->push_back(s1);
+
+      delete s;
+   }
+
+   printf("FEC groups: %d\n", (int)fec_new->size());
+
+   delete fec_groups;
+   fec_groups = fec_new;
+}
+
 void CirMgr::initFecGrps() {
+   /*
    bool vis[nMaxVar+1];
    pair<string, int> *depend_var = new pair<string, int>[nMaxVar+1];
    string allzero(nMaxVar+1, '0');
@@ -124,6 +170,7 @@ void CirMgr::initFecGrps() {
    }
 
    delete[] depend_var;
+   */
 }
 
 void CirMgr::initFecGrpsDFS(bool *visited, 

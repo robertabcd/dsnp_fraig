@@ -18,53 +18,42 @@ using namespace std;
 
 // TODO: You are free to define data members and member functions on your own
 
-unsigned int CirVar::s_MaxSimHistory = 32;
-
 //unsigned CirAigGate::_globalRef_s = 0;
 
-bool CirPO::evaluate() {
-   if(dirty) {
-      val = mgr.getVarDirectly(in0/2)->evaluate();
-      if(in0 & 1) val = !val;
-      dirty = false;
+void CirVar::setType(GateType t) {
+   switch(type = t) {
+      case UNDEF_GATE: str_type = "UNDEF"; break;
+      case PI_GATE:    str_type = "PI";    break;
+      case PO_GATE:    str_type = "PO";    break;
+      case AIG_GATE:   str_type = "AIG";   break;
+      case CONST_GATE: str_type = "CONST"; break;
+      default: assert(!"invalid gate type"); break;
    }
-   return val;
 }
 
-void CirGate::setFanin(int in0, int in1) {
-   //if(in0 > in1)
-      //setFanin(in1, in0);
-   //else {
-      this->in0 = in0;
-      this->in1 = in1;
-      resetState();
-   //}
-}
-
-bool CirGate::evaluate() {
-   if(dirty) {
-      bool v0 = mgr.getVarDirectly(in0/2)->evaluate();
-      if(in0 & 1) v0 = !v0;
-      if(v0) {
-         val = mgr.getVarDirectly(in1/2)->evaluate();
-         if(in1 & 1) val = !val;
-      } else
-         val = false;
-      dirty = false;
+gateval_t CirVar::updateValue() {
+   gateval_t v0;
+   dirty = false;
+   switch(type) {
+      case UNDEF_GATE:
+         return val = false;
+      case PI_GATE:
+         return val;
+      case PO_GATE:
+         val = mgr.getVarDirectly(in0>>1)->evaluate();
+         if(in0&1) val = ~val;
+         return val;
+      case AIG_GATE:
+         v0 = mgr.getVarDirectly(in0>>1)->evaluate();
+         if(in0&1) v0 = ~v0;
+         val = mgr.getVarDirectly(in1>>1)->evaluate();
+         if(in1&1) val = ~val;
+         return val &= v0;
+      case CONST_GATE:
+         return val = false;
+      default:
+         return val = false;
    }
-   return val;
-}
-
-char *CirVar::getSimHistoryStr() const {
-   static char buf[1024];
-
-   unsigned int n = sim_history.size();
-
-   for(unsigned int i = 0; i < n; ++i)
-      buf[i] = (sim_history[i] ? '1' : '0');
-   buf[n] = '\0';
-
-   return buf;
 }
 
 void
@@ -81,11 +70,16 @@ CirVar::reportGate() const
             getVarId(), getLine());
    }
    printf("= %-46s =\n", buf);
+
    sprintf(buf, "FECs: ???");
    printf("= %-46s =\n", buf);
-   sprintf(buf, "Value: %s", 
-         (sim_history.size() > 0)?getSimHistoryStr():"<not yet simulated>");
+
+   sprintf(buf, "Value: ");
+   char *p = &buf[strlen(buf)];
+   for(int i = sizeof(gateval_t)*8-1; i >= 0; --i)
+      *(p++) = ((val >> i) & 1) ? '1' : '0';
    printf("= %-46s =\n", buf);
+
    printf("==================================================\n");
 }
 

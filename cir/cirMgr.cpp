@@ -199,39 +199,49 @@ bool CirMgr::initCircuit(int M, int I, int L, int O, int A) {
    nGates = A;
 
    vars     = new CirVar *[M+1];
-   inputs   = new CirPI *[I];
-   outputs  = new CirPO *[O];
-   gates    = new CirGate *[A];
+   inputs   = new CirVar *[I];
+   outputs  = new CirVar *[O];
+   gates    = new CirVar *[A];
 
    memset(vars, 0, sizeof(CirVar *) * (M+1));
-   memset(inputs, 0, sizeof(CirPI *) * I);
-   memset(outputs, 0, sizeof(CirPO *) * O);
-   memset(gates, 0, sizeof(CirGate *) * A);
+   memset(inputs, 0, sizeof(CirVar *) * I);
+   memset(outputs, 0, sizeof(CirVar *) * O);
+   memset(gates, 0, sizeof(CirVar *) * A);
 
    iInput = iOutput = iGate = 0;
    return true;
 }
 
-CirPI *CirMgr::addInput(int varid) {
+CirVar *CirMgr::addInput(int varid) {
    if(iInput >= nInputs) return NULL;
-   CirPI *node = new CirPI(*this, varid);
-   inputs[iInput++] = node;
-   vars[varid] = node;
-   return node;
+
+   CirVar *node = new CirVar(*this, varid);
+   node->setType(PI_GATE);
+
+   return inputs[iInput++] = vars[varid] = node;
 }
 
-CirPO *CirMgr::addOutput(int in0) {
+CirVar *CirMgr::addOutput(int in0) {
    if(iOutput >= nOutputs) return NULL;
+
    int varid = nMaxVar+1+iOutput;
-   return outputs[iOutput++] = new CirPO(*this, varid, in0);
+
+   CirVar *node = new CirVar(*this, varid);
+   node->setType(PO_GATE);
+   node->setIN0(in0);
+
+   return outputs[iOutput++] = node;
 }
 
-CirGate *CirMgr::addGate(int varid, int in0, int in1) {
+CirVar *CirMgr::addGate(int varid, int in0, int in1) {
    if(iGate >= nGates) return NULL;
-   CirGate *gate = new CirGate(*this, varid, in0, in1);
-   gates[iGate++] = gate;
-   vars[varid] = gate;
-   return gate;
+
+   CirVar *gate = new CirVar(*this, varid);
+   gate->setType(AIG_GATE);
+   gate->setIN0(in0);
+   gate->setIN1(in1);
+
+   return gates[iGate++] = vars[varid] = gate;
 }
 
 bool CirParser::parseFile(const char *filename) {
@@ -365,7 +375,7 @@ bool CirParser::parsePI() {
 
    Debug("add PI %d\n", litid);
 
-   CirPI *pi = mgr.addInput(litid/2);
+   CirVar *pi = mgr.addInput(litid/2);
    if(pi == NULL) return printErrorMsgAtLine("cannot create PI");
 
    pi->setLine(line);
@@ -385,7 +395,7 @@ bool CirParser::parsePO() {
 
    Debug("add PO %d\n", in0);
 
-   CirPO *po = mgr.addOutput(in0);
+   CirVar *po = mgr.addOutput(in0);
    if(po == NULL) return printErrorMsgAtLine("cannot create PO");
 
    po->setLine(line);
@@ -419,7 +429,7 @@ bool CirParser::parseGate() {
 
    Debug("add AigGate %d %d %d\n", litid, in0, in1);
 
-   CirGate *g = mgr.addGate(litid/2, in0, in1);
+   CirVar *g = mgr.addGate(litid/2, in0, in1);
    if(g == NULL)
       return printErrorMsgAtLine("cannot create AigGate");
 
@@ -455,7 +465,7 @@ bool CirParser::parseInputSymbol() {
    if(id >= mgr.getNumPIs())
       return printErrorMsgAtLine("invalid PI id: %d", id);
 
-   CirPI *pi = mgr.getPI(id);
+   CirVar *pi = mgr.getPI(id);
    if(pi->hasSymbol())
       return printErrorMsgAtLine("symbol of this PI has already declared, "
             "declaration at line %d", pi->getSymbolLine());
@@ -487,7 +497,7 @@ bool CirParser::parseOutputSymbol() {
    if(id >= mgr.getNumPOs())
       return printErrorMsgAtLine("invalid PO id: %d", id);
 
-   CirPO *po = mgr.getPO(id);
+   CirVar *po = mgr.getPO(id);
    if(po->hasSymbol())
       return printErrorMsgAtLine("symbol of this PO has already declared, "
             "declaration at line %d", po->getSymbolLine());
@@ -517,12 +527,16 @@ bool CirParser::parseCommentHeader() {
 
 
 void CirMgr::fixNullVars() {
-   if(vars[0] == NULL)
-      vars[0] = new CirConst(*this, 0);
+   if(vars[0] == NULL) {
+      vars[0] = new CirVar(*this, 0);
+      vars[0]->setType(CONST_GATE);
+   }
 
    for(int i = 1; i <= nMaxVar; ++i)
-      if(vars[i] == NULL)
-         vars[i] = new CirUndef(*this, i);
+      if(vars[i] == NULL) {
+         vars[i] = new CirVar(*this, i);
+         vars[i]->setType(UNDEF_GATE);
+      }
 }
 
 void CirMgr::calculateRefCount() {
@@ -817,7 +831,7 @@ void CirMgr::outputAAG(FILE *fp) {
       fprintf(fp, "%d\n", outputs[i]->getIN0());
 
    for(int i = 0; i < nGates; ++i) {
-      CirGate *g = gates[i];
+      CirVar *g = gates[i];
       if(!g->isRemoved())
          fprintf(fp, "%d %d %d\n", g->getVarId()*2, g->getIN0(), g->getIN1());
    }

@@ -32,7 +32,7 @@ enum SATSolveEffort {
 // TODO: You are free to define data members and member functions on your own
 class CirMgr
 {
-   typedef vector<set<int> > FECGrp;
+   typedef vector<vector<int> *> FECGrp;
 
    friend class CirParser;
 
@@ -62,8 +62,8 @@ public:
    }
    // this is intended to speed up simulation only!
    inline CirVar *getVarDirectly(int varid) { return vars[varid]; }
-   CirPI  *getPI(int id) const { return inputs[id]; }
-   CirPO  *getPO(int id) const { return outputs[id]; }
+   CirVar  *getPI(int id) const { return inputs[id]; }
+   CirVar  *getPO(int id) const { return outputs[id]; }
 
    int getNumPIs() const { return nInputs; }
    int getNumPOs() const { return nOutputs; }
@@ -80,9 +80,9 @@ public:
    void deleteCircuit() { }
 
    bool initCircuit(int M, int I, int L, int O, int A);
-   CirPI *addInput(int varid);
-   CirPO *addOutput(int in0);
-   CirGate *addGate(int varid, int in0, int in1);
+   CirVar *addInput(int varid);
+   CirVar *addOutput(int in0);
+   CirVar *addGate(int varid, int in0, int in1);
 
    void fixNullVars();
 
@@ -111,6 +111,7 @@ public:
    void setSatEffort(SATSolveEffort ef) { sat_effort = ef; }
 
    void initFecGrps();
+   void FecGrouping();
 
    // Member functions about flags
 
@@ -129,9 +130,9 @@ private:
    int nMaxVar, nInputs, nOutputs, nGates;
    int iInput, iOutput, iGate;
    CirVar   **vars;
-   CirPI    **inputs;
-   CirPO    **outputs;
-   CirGate  **gates;
+   CirVar   **inputs;
+   CirVar   **outputs;
+   CirVar   **gates;
 
    map<string, int> symbols_input, symbols_output;
 
@@ -156,6 +157,10 @@ private:
 
    bool simuationError(const char *msgfmt, ...);
    void simulationResult(const char *patt, const char *result);
+
+   bool checkSimulationPattern(const char *patt);
+   void pushSimulationPattern(const char *patt, gateval_t *vin);
+   bool simulate(gateval_t *vin, char **result);
 };
 
 class CirParser

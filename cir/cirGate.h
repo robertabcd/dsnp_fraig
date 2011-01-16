@@ -29,6 +29,8 @@ static string gateTypeStr[TOT_GATE] = { "", "PI", "PO", "AIG" };
 
 class CirMgr;
 
+typedef unsigned int gateval_t;
+
 //------------------------------------------------------------------------
 //   Define classes
 //------------------------------------------------------------------------
@@ -38,12 +40,16 @@ class CirVar
 public:
    CirVar(CirMgr &mgr, int varid): mgr(mgr), id(0), line(0), symline(0),
       ref_count(0), has_symbol(false), is_removed(false) {
+      dirty = true;
+      val = false;
+      in0 = in1 = 0;
       setVarId(varid);
    }
    virtual ~CirVar() {}
 
-   virtual GateType getType() const = 0;
-   virtual string getTypeStr() const = 0;
+   void setType(GateType t);
+   GateType getType() const { return type; }
+   string getTypeStr() const { return str_type; }
 
    void setVarId(int i) { id = i; }
    int getVarId() const { return id; }
@@ -58,24 +64,50 @@ public:
    void removeSymbol() { symbol = ""; has_symbol = false; }
    bool hasSymbol() const { return has_symbol; }
 
-   virtual void resetState() = 0;
-   virtual bool evaluate() = 0;
-   void pushSimulatedVal() {
-      sim_history.push_back(evaluate());
-      if(sim_history.size() > s_MaxSimHistory)
-         sim_history.pop_front();
+   inline void resetState() { dirty = true; }
+   inline gateval_t evaluate() {
+      if(dirty) return updateValue();
+      return val;
    }
-   const deque<bool> &getSimHistory() const { return sim_history; }
+   inline void setVal(gateval_t v) { dirty = false; val = v; }
 
    /* deprecated */
-   virtual int getDependVarCount() const = 0;
-   virtual int getDependVar(int idx) const = 0;
-   virtual bool isDependVarNegated(int idx) const = 0;
+   int getDependVarCount() const {
+      if(type == AIG_GATE) return 2;
+      else if(type == PO_GATE) return 1;
+      else return 0;
+   }
+   int getDependVar(int idx) const {
+      if(idx == 0) {
+         assert(type == AIG_GATE || type == PO_GATE);
+         return in0>>1;
+      } else if(idx == 1) {
+         assert(type == AIG_GATE);
+         return in1>>1;
+      } else
+         assert(!"invalid index");
+   }
+   bool isDependVarNegated(int idx) const {
+      if(idx == 0) {
+         assert(type == AIG_GATE || type == PO_GATE);
+         return in0&1;
+      } else if(idx == 1) {
+         assert(type == AIG_GATE);
+         return in1&1;
+      } else
+         assert(!"invalid index");
+   }
 
-   virtual int getIN0() const { assert(!"Invalid query"); return 0; }
-   virtual int getIN1() const { assert(!"Invalid query"); return 0; }
-   virtual void setIN0(int in0) { assert(!"Invalid operation"); }
-   virtual void setIN1(int in1) { assert(!"Invalid operation"); }
+   inline int getIN0() const { return in0; }
+   inline int getIN1() const { return in1; }
+   void setIN0(int in0) {
+      assert(type == AIG_GATE || type == PO_GATE);
+      this->in0 = in0;
+   }
+   void setIN1(int in1) {
+      assert(type == AIG_GATE);
+      this->in1 = in1;
+   }
 
    void setRefCount(int c) { ref_count = c; }
    int getRefCount() const { return ref_count; }
@@ -86,9 +118,9 @@ public:
    bool isRemoved() const { return is_removed; }
 
    /* reporting */
-   virtual void reportGate() const;
-   virtual void reportFanin(unsigned level) const;
-   virtual void reportFanout(unsigned level) const;
+   void reportGate() const;
+   void reportFanin(unsigned level) const;
+   void reportFanout(unsigned level) const;
 
 protected:
    CirMgr &mgr;
@@ -96,106 +128,33 @@ protected:
    bool has_symbol, is_removed;
    string symbol;
 
-   deque<bool> sim_history;
+   GateType type;
+   string str_type;
 
-   static unsigned int s_MaxSimHistory;
+   int in0, in1;
+   gateval_t val;
+   bool dirty;
 
 
-   char *getSimHistoryStr() const;
+   gateval_t updateValue();
 
    void reportFanoutDFS(int level, int maxlevel, int caller) const;
    void reportFaninDFS(int level, int maxlevel, bool inverted) const;
 };
 typedef CirVar CirAigGate;
 
-class CirConst : public CirVar
+
+/*
+class XXXCirGate
 {
 public:
-   CirConst(CirMgr &mgr, int varid): CirVar(mgr, varid) {}
-   ~CirConst() {}
-
-   GateType getType() const { return CONST_GATE; }
-   string getTypeStr() const { return "CONST"; }
-
-   void resetState() {}
-   bool evaluate() { return false; }
-
-   int getDependVarCount() const { return 0; }
-   int getDependVar(int idx) const { assert(!"Invalid query"); }
-   bool isDependVarNegated(int idx) const { assert(!"Invalid query"); }
-};
-
-class CirUndef : public CirConst
-{
-public:
-   CirUndef(CirMgr &mgr, int varid): CirConst(mgr, varid) {}
-   ~CirUndef() {}
-
-   GateType getType() const { return UNDEF_GATE; }
-   string getTypeStr() const { return "UNDEF"; }
-};
-
-class CirPI : public CirVar
-{
-public:
-   CirPI(CirMgr &mgr, int varid): CirVar(mgr, varid), val(false) {}
-   ~CirPI() {}
-
-   GateType getType() const { return PI_GATE; }
-   string getTypeStr() const { return "PI"; }
-
-   void resetState() {}
-   bool evaluate() { return val; }
-
-   int getDependVarCount() const { return 0; }
-   int getDependVar(int idx) const { assert(!"Invalid query"); }
-   bool isDependVarNegated(int idx) const { assert(!"Invalid query"); }
-
-   void setVal(bool b) { val = b; }
-
-private:
-   int val;
-};
-
-class CirPO : public CirVar
-{
-public:
-   CirPO(CirMgr &mgr, int varid, int in0 = 0): CirVar(mgr, varid), in0(in0) {
-      resetState();
-   }
-   ~CirPO() {}
-
-   GateType getType() const { return PO_GATE; }
-   string getTypeStr() const { return "PO"; }
-
-   void resetState() { dirty = true; }
-   bool evaluate();
-
-   int getDependVarCount() const { return 1; }
-   int getDependVar(int idx) const { assert(idx == 0); return in0/2; }
-   bool isDependVarNegated(int idx) const { assert(idx == 0); return in0&1; }
-
-   int getIN0() const { return in0; }
-   void setIN0(int in0) { this->in0 = in0; }
-
-private:
-   int in0;
-   bool val;
-   bool dirty;
-};
-
-class CirGate : public CirVar
-{
-public:
-   CirGate(CirMgr &mgr, int varid, int in0, int in1): CirVar(mgr, varid) {
+   CirGate(CirMgr &mgr, int varid, int in0, int in1){//: CirVar(mgr, varid) {
       setFanin(in0, in1);
       resetState();
    }
    ~CirGate() {}
 
    // Basic access methods
-   GateType getType() const { return AIG_GATE; }
-   string getTypeStr() const { return "AIG"; }
 
    int getDependVarCount() const { return 2; }
    int getDependVar(int idx) const {
@@ -211,17 +170,10 @@ public:
       return 0;
    }
 
-   int getIN0() const { return in0; }
-   int getIN1() const { return in1; }
-   void setIN0(int in0) { this->in0 = in0; resetState(); }
-   void setIN1(int in1) { this->in1 = in1; resetState(); }
 
    // Methods about circuit construction
-   void setFanin(int in0, int in1);
 
    // Methods about circuit simulation
-   void resetState() { dirty = true; }
-   bool evaluate();
 
    // Methods about fraig operation
 
@@ -243,6 +195,7 @@ protected:
 
    //static unsigned         _globalRef_s;
 };
+*/
 
 class VarHashKey
 {

@@ -41,20 +41,49 @@ CirMgr::randomSim()
       done_srand = 1;
    }
 
-   char patt[nInputs+4];
-   char res[nOutputs+4];
+   int per_batch = sizeof(gateval_t)*8;
+
+   gateval_t vin[nInputs];
+   char **pattern = new char *[per_batch];
+   char **result = new char *[per_batch];
+
+   memset(vin, 0, sizeof(gateval_t)*nInputs);
+   
+   for(int i = 0; i < per_batch; ++i) {
+      pattern[i] = new char[nInputs+1024];
+      result[i] = new char[nOutputs+1024];
+   }
 
    int sim;
 
-   for(sim = 0; sim < 128; ++sim) {
+   for(sim = 0; sim < 4; ++sim) {
       for(int i = 0; i < nInputs; ++i)
-         patt[i] = (rand() & 1) ? '1' : '0';
-      patt[nInputs] = '\0';
+         vin[i] = rand();
 
-      simulatePattern(patt, res);
-      simulationResult(patt, res);
+      for(int i = 0; i < nInputs; ++i) {
+         gateval_t v = vin[i];
+         for(int pid = per_batch-1; pid >= 0; --pid) {
+            pattern[pid][i] = (v & 1) ? '1' : '0';
+            v >>= 1;
+         }
+      }
+      for(int i = 0; i < per_batch; ++i)
+         pattern[i][nInputs] = '\0';
+
+      simulate(vin, result);
+
+      for(int i = 0; i < per_batch; ++i)
+         simulationResult(pattern[i], result[i]);
    }
-   printf("%d patterns simulated\n", sim);
+
+   printf("%d patterns simulated\n", sim*per_batch);
+
+   for(int i = 0; i < per_batch; ++i) {
+      delete pattern[i];
+      delete result[i];
+   }
+   delete[] pattern;
+   delete[] result;
 }
 
 bool CirMgr::simuationError(const char *msgfmt, ...) {
@@ -71,32 +100,74 @@ bool CirMgr::simuationError(const char *msgfmt, ...) {
 }
 
 void CirMgr::simulationResult(const char *patt, const char *result) {
-   if(_simLog)
+   if(_simLog) {
       *_simLog << patt << " " << result << endl;
-   else
-      printf("%s %s\n", patt, result);
+   } else {
+      //printf("%s %s\n", patt, result);
+   }
 }
 
 void CirMgr::fileSim(ifstream &ifs) {
+   int per_batch = sizeof(gateval_t)*8;
+
    char buf[nInputs+1024];
-   char res[nOutputs+1024];
-   int sim = 0;
+   gateval_t vin[nInputs];
+   char **pattern = new char *[per_batch];
+   char **result = new char *[per_batch];
+
+   memset(vin, 0, sizeof(gateval_t)*nInputs);
+   
+   for(int i = 0; i < per_batch; ++i) {
+      pattern[i] = new char[nInputs+1024];
+      result[i] = new char[nOutputs+1024];
+   }
+
+   int sim = 0, in_queue = 0;
+
    ifs.getline(buf, nInputs+1024);
    while(!ifs.eof()) {
       sim++;
-      if(!simulatePattern(buf, res)) {
+      if(!checkSimulationPattern(buf)) {
          simuationError("Simulation error on line %d\n", sim);
          simuationError("Simulation terminated\n");
          break;
       }
-      simulationResult(buf, res);
+
+      pushSimulationPattern(buf, vin);
+      strcpy(pattern[in_queue], buf);
+
+      if(++in_queue >= per_batch) {
+         in_queue = 0;
+
+         simulate(vin, result);
+
+         for(int i = 0; i < per_batch; ++i)
+            simulationResult(pattern[i], result[i]);
+      }
 
       ifs.getline(buf, nInputs+1024);
    }
+
+   if(in_queue > 0) {
+      in_queue = 0;
+
+      simulate(vin, result);
+
+      for(int i = 0; i < in_queue; ++i)
+         simulationResult(pattern[i], result[per_batch-in_queue+i]);
+   }
+
    printf("%d pattern(s) simulated\n", sim);
+
+   for(int i = 0; i < per_batch; ++i) {
+      delete pattern[i];
+      delete result[i];
+   }
+   delete[] pattern;
+   delete[] result;
 }
 
-bool CirMgr::simulatePattern(const char *patt, char *result) {
+bool CirMgr::checkSimulationPattern(const char *patt) {
    int len = strlen(patt);
 
    if(len != nInputs)
@@ -106,22 +177,33 @@ bool CirMgr::simulatePattern(const char *patt, char *result) {
       if(patt[i] != '0' && patt[i] != '1')
          return simuationError("pattern should contains 0/1 only\n");
 
+   return true;
+}
+
+void CirMgr::pushSimulationPattern(const char *patt, gateval_t *vin) {
+   for(int i = 0; i < nInputs; ++i)
+      vin[i] = (vin[i] << 1)|(patt[i] == '1'?1:0);
+}
+
+bool CirMgr::simulate(gateval_t *vin, char **result) {
    for(int i = 1; i <= nMaxVar; ++i) vars[i]->resetState();
    for(int i = 0; i < nOutputs; ++i) outputs[i]->resetState();
 
-   for(int i = 0; i < len; ++i)
-      inputs[i]->setVal(patt[i] == '1');
+   for(int i = 0; i < nInputs; ++i)
+      inputs[i]->setVal(vin[i]);
 
-   for(int i = 0; i < nOutputs; ++i)
-      result[i] = outputs[i]->evaluate() ? '1' : '0';
-   result[nOutputs] = '\0';
+   int n_patt = sizeof(gateval_t)*8;
+   for(int i = 0; i < nOutputs; ++i) {
+      gateval_t v = outputs[i]->evaluate();
+      for(int pid = n_patt-1; pid >= 0; --pid) {
+         result[pid][i] = (v & 1) ? '1' : '0';
+         v >>= 1;
+      }
+   }
+   for(int pid = n_patt-1; pid >= 0; --pid)
+      result[pid][nOutputs] = '\0';
 
-   return true;
-   for(int i = 0; i <= nMaxVar; ++i)
-      if(!vars[i]->isRemoved())
-         vars[i]->pushSimulatedVal();
-   for(int i = 0; i < nOutputs; ++i)
-      outputs[i]->pushSimulatedVal();
+//   FecGrouping();
 
    return true;
 }
