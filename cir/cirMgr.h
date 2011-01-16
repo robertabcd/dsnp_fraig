@@ -112,7 +112,11 @@ public:
 
    void initFecGroups();
    void FecGrouping();
-   const vector<int> *getFecGroup(int i) const { return fec_groups->at(i); }
+   const vector<int> *getFecGroup(int i) const {
+      if(!fec_groups || i < 0 || i >= (int)fec_groups->size())
+         return NULL;
+      return fec_groups->at(i);
+   }
    void printFecGroups();
 
    // Member functions about flags

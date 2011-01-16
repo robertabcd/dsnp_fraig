@@ -302,8 +302,12 @@ bool CirParser::parseFileContent() {
    mgr.calculateRefCount();
    mgr.countFloating();
 
-   printf("Merging trivial gates...\n");
-   mgr.mergeTrivial();
+   if(mgr._noopt) {
+      printf("no opt set, skip merge trivial gates.\n");
+   } else {
+      printf("Merging trivial gates...\n");
+      mgr.mergeTrivial();
+   }
 
    //mgr.initFecGrps();
 
@@ -788,6 +792,24 @@ CirMgr::printFloatGates() const
 void
 CirMgr::printFECPairs() const
 {
+   if(!fec_groups) {
+      fprintf(stderr, "not yet simulated.\n");
+      return;
+   }
+
+   for(int gid = 0, n = fec_groups->size(); gid < n; ++gid) {
+      printf("[%d]", gid);
+
+      vector<int> *s = fec_groups->at(gid);
+
+      for(vector<int>::iterator it = s->begin(), ed = s->end();
+            it != ed; ++it) {
+
+         printf(" %s%d", ((*it)&1)?"!":"", (*it)>>1);
+      }
+
+      printf("\n");
+   }
 }
 
 void CirMgr::buildRevRef() {

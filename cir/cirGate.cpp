@@ -74,17 +74,20 @@ CirVar::reportGate() const
    printf("= FECs:");
    int myid;
    const vector<int> *fec = mgr.getFecGroup(getFecGroupId());
-   for(int i = 0, n = fec->size(); i < n; ++i) {
-      myid = fec->at(i);
-      if(getVarId() == (myid>>1)) break;
-   }
-   for(int i = 0, n = fec->size(); i < n; ++i) {
-      int id = fec->at(i);
-      if(id == myid) continue;
-      printf(" %s%d", (((id^myid)&1)?"!":""), id>>1);
-   }
-   if(fec->size() == 0) printf("<none>");
-   printf("\n");
+   if(fec) {
+      for(int i = 0, n = fec->size(); i < n; ++i) {
+         myid = fec->at(i);
+         if(getVarId() == (myid>>1)) break;
+      }
+      for(int i = 0, n = fec->size(); i < n; ++i) {
+         int id = fec->at(i);
+         if(id == myid) continue;
+         printf(" %s%d", (((id^myid)&1)?"!":""), id>>1);
+      }
+      if(fec->size() == 0) printf("<none>");
+      printf("\n");
+   } else
+      printf("<not yet simulated>\n");
 
    sprintf(buf, "Value: ");
    char *p = &buf[strlen(buf)];
