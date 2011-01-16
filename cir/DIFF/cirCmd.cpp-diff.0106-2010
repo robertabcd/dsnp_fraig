@@ -1,0 +1,62 @@
+9d8
+< #include <cassert>
+37,50d35
+< enum CirCmdState
+< {
+<    // Order matters! Do not change the order!!
+<    CIRINIT,
+<    CIRREAD,
+<    CIRSTRASH,
+<    CIRSIMULATE,
+<    CIRFRAIG,
+<    // dummy end
+<    CIRCMDTOT
+< };
+< 
+< static CirCmdState curCmd = CIRINIT;
+< 
+53d37
+< //            [-NOOPTimization]  // hidden option
+65c49
+<    bool doReplace = false, noopt = false;
+---
+>    bool doReplace = false;
+72,75d55
+<       else if (myStrNCmp("-NOOPTimization", options[i], 6) == 0) {
+<          if (noopt) return CmdExec::errorOption(CMD_OPT_EXTRA,options[i]);
+<          noopt = true;
+<       }
+86d65
+<          curCmd = CIRINIT;
+96d74
+<    cirMgr->setNoOpt(noopt);
+98d75
+<       curCmd = CIRINIT;
+103,104d79
+<    curCmd = CIRREAD;
+< 
+206c181
+<          thisGate = cirMgr->getGate(gateId);
+---
+>          thisGate = cirMgr->getAigGate(gateId);
+270,274d244
+<    assert(curCmd != CIRINIT);
+<    if (curCmd == CIRSTRASH || curCmd == CIRSIMULATE) {
+<       cerr << "Error: circuit has been strashed!!" << endl;
+<       return CMD_EXEC_ERROR;
+<    }
+276,277d245
+<    curCmd = CIRSTRASH;
+< 
+345d312
+<    assert (curCmd != CIRINIT);
+354d320
+<    curCmd = CIRSIMULATE;
+390,393d355
+<    if (curCmd != CIRSIMULATE) {
+<       cerr << "Error: circuit is not yet simulated!!" << endl;
+<       return CMD_EXEC_ERROR;
+<    }
+395,396d356
+<    curCmd = CIRFRAIG;
+< 

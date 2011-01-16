@@ -1,0 +1,166 @@
+/****************************************************************************
+  FileName     [ cirMgr.h ]
+  PackageName  [ cir ]
+  Synopsis     [ Define circuit manager ]
+  Author       [ Chung-Yang (Ric) Huang ]
+  Copyright    [ Copyleft(c) 2008-2010 LaDs(III), GIEE, NTU, Taiwan ]
+****************************************************************************/
+
+#ifndef CIR_MGR_H
+#define CIR_MGR_H
+
+#include <vector>
+#include <map>
+#include <set>
+#include <string>
+#include <fstream>
+
+#include "cirGate.h"
+#include "myHash.h"
+
+//class CirAigGate;
+
+using namespace std;
+
+// TODO: You are free to define data members and member functions on your own
+class CirMgr
+{
+   typedef vector<set<int> > FECGrp;
+
+   friend class CirParser;
+
+public:
+   CirMgr(): _simLog(NULL), fec_groups(NULL) {
+      is_debug = true;
+   }
+   ~CirMgr() { deleteCircuit(); }
+
+   // Access functions
+   // return '0' if "gid" corresponds to an undefined gate.
+   // gid == varid | PO id
+   CirAigGate* getAigGate(unsigned gid) const { return getGate(gid); }
+   CirAigGate* getGate(unsigned gid) const;
+
+   CirVar *getVar(int varid) const { return vars[varid]; }
+   CirPI  *getPI(int id) const { return inputs[id]; }
+   CirPO  *getPO(int id) const { return outputs[id]; }
+
+   int getNumPIs() const { return nInputs; }
+   int getNumPOs() const { return nOutputs; }
+   int getNumGates() const { return nGates; }
+   int getMaxVarNum() const { return nMaxVar; }
+
+   // Member functions about circuit construction
+   bool readCircuit(const string&);
+   void deleteCircuit() { }
+
+   bool initCircuit(int M, int I, int L, int O, int A);
+   CirPI *addInput(int varid);
+   CirPO *addOutput(int in0);
+   CirGate *addGate(int varid, int in0, int in1);
+
+   void fixNullVars();
+
+   // Member functions about circuit optimization
+   static void setNoOpt(bool noopt) { _noopt = noopt; }
+
+   void calculateRefCount();
+   void mergeTrivial();
+   void removeUnrefGates();
+
+   // Member functions about circuit reporting
+   void printSummary() const;
+   void printNetlist() const;
+   void printPIs() const;
+   void printPOs() const;
+   void printFloatGates() const;
+   void printFECPairs() const;
+
+   // Member functions about fraig
+   void strash();
+   void setSimLog(ofstream *logFile) { _simLog = logFile; }
+   void randomSim();
+   void fileSim(ifstream&);
+   bool simulatePattern(const char *patt, char *result);
+   void fraig();
+
+   void initFecGrps();
+
+   // Member functions about flags
+
+private:
+   bool is_debug;
+
+   // lists of pi, po, aig, total, dfs, floating, FEC...
+   // Simulation, fraig related...
+   ofstream    *_simLog;
+   static bool  _noopt;
+
+
+   // private member functions for circuit parsing
+   int nMaxVar, nInputs, nOutputs, nGates;
+   int iInput, iOutput, iGate;
+   CirVar   **vars;
+   CirPI    **inputs;
+   CirPO    **outputs;
+   CirGate  **gates;
+
+   map<string, int> symbols_input, symbols_output;
+
+   vector<int> floating_gates, unref_gates;
+
+   FECGrp *fec_groups;
+
+   void refCountDFS(bool *visited, int varid);
+   int countValidGates() const;
+   void netlistDFS(int &dfn, bool *visited, const CirVar *v) const;
+   int mergeTrivialDFS(bool *visited, int litid);
+   int strashDFS(bool *visited, Hash<VarHashKey, int> &h, int litid);
+   void initFecGrpsDFS(bool *visited, pair<string, int> *dep_var, int varid);
+
+   void countFloating();
+
+   bool simuationError(const char *msgfmt, ...);
+   void simulationResult(const char *patt, const char *result);
+};
+
+class CirParser
+{
+public:
+   CirParser(CirMgr &mgr): mgr(mgr) {
+      is_debug = true;
+   }
+   ~CirParser() {}
+
+   bool parseFile(const char *filename);
+
+private:
+   CirMgr &mgr;
+   ifstream ifs;
+
+   int line, col;
+
+   bool is_debug;
+
+   bool printErrorMsg(const char *msgfmt, ...);
+   bool printErrorMsgAtLine(const char *msgfmt, ...);
+
+   void Debug(const char *msg, ...);
+
+   bool readUInt(int &ret, char delim = ' ');
+   bool readStr(char *buf, int bufsz, char delim = ' ');
+
+   bool parseFileContent();
+   bool parseHeader();
+   bool parsePI();
+   bool parsePO();
+   bool parseGate();
+   bool parseInputSymbol();
+   bool parseOutputSymbol();
+   bool parseCommentHeader();
+
+   bool checkSymbolValid(map<string, int> &tb, const string &strsym);
+};
+
+
+#endif // CIR_MGR_H

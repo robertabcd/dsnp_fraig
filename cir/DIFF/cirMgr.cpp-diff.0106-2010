@@ -1,0 +1,2 @@
+25d24
+< bool CirMgr::_noopt = false;  // default: do optimization

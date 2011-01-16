@@ -1,0 +1,10 @@
+37,39d36
+<    // Member functions about circuit optimization
+<    static void setNoOpt(bool noopt) { _noopt = noopt; }
+< 
+60,62c57
+<    ofstream    *_simLog;
+<    static bool  _noopt;
+< 
+---
+>    ofstream     *_simLog;
