@@ -22,6 +22,13 @@
 
 using namespace std;
 
+enum SATSolveEffort {
+   EFFORT_LOW,
+   EFFORT_MED,
+   EFFORT_HIGH,
+   EFFORT_UNLIMITED
+};
+
 // TODO: You are free to define data members and member functions on your own
 class CirMgr
 {
@@ -30,7 +37,8 @@ class CirMgr
    friend class CirParser;
 
 public:
-   CirMgr(): _simLog(NULL), rev_ref(NULL), fec_groups(NULL) {
+   CirMgr(): _simLog(NULL), rev_ref(NULL), sat_effort(EFFORT_MED),
+      fec_groups(NULL) {
       is_debug = true;
    }
    ~CirMgr() { deleteCircuit(); }
@@ -98,6 +106,7 @@ public:
    void fileSim(ifstream&);
    bool simulatePattern(const char *patt, char *result);
    void fraig();
+   void setSatEffort(SATSolveEffort ef) { sat_effort = ef; }
 
    void initFecGrps();
 
@@ -128,6 +137,7 @@ private:
 
    multiset<int> *rev_ref;
 
+   SATSolveEffort sat_effort;
    FECGrp *fec_groups;
 
    void refCountDFS(bool *visited, int varid);

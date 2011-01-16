@@ -18,5 +18,6 @@ CmdClass(CirStrashCmd);
 CmdClass(CirSimCmd);
 CmdClass(CirFraigCmd);
 CmdClass(CirWriteCmd);
+CmdClass(CirSatCmd);
 
 #endif // CIR_CMD_H
