@@ -18,6 +18,8 @@
 #include "cirGate.h"
 #include "myHash.h"
 
+#include "sat.h"
+
 //class CirAigGate;
 
 using namespace std;
@@ -39,6 +41,9 @@ class CirMgr
 public:
    CirMgr(): _simLog(NULL), rev_ref(NULL), sat_effort(EFFORT_MED),
       fec_groups(NULL) {
+      sat_var = NULL;
+      sat_keypat = NULL;
+      sat_keypat_size = 0;
       is_debug = true;
    }
    ~CirMgr() { deleteCircuit(); }
@@ -109,6 +114,9 @@ public:
    bool simulatePattern(const char *patt, char *result);
    void fraig();
    void setSatEffort(SATSolveEffort ef) { sat_effort = ef; }
+   void SatStoreKeyPattern();
+   inline bool SatIsKeyPatternStorageFull() const;
+   void SatSimulateKeyPatterns();
 
    void initFecGroups();
    void FecGrouping();
@@ -149,14 +157,32 @@ private:
    SATSolveEffort sat_effort;
    FECGrp *fec_groups;
 
+   SatSolver sat_solver;
+   Var *sat_var;
+
+   gateval_t *sat_keypat;
+   int sat_keypat_size;
+   int sat_merged;
+
+   int fraig_dfs_leave;
+
    void refCountDFS(bool *visited, int varid);
    int countValidGates() const;
    void netlistDFS(int &dfn, bool *visited, const CirVar *v) const;
    int mergeTrivialDFS(bool *visited, int litid);
    int strashDFS(bool *visited, Hash<VarHashKey, int> &h, int litid);
 
+   int fraigDFS(int &dfn, bool *visited, int *eqlit, int litid);
+   void SatSetupInputs();
+   void SatAddGate(CirVar *v);
+   void SatAddGateDFS(bool *visited, CirVar *v);
+   bool SatSolveVarEQ(int v0, int v1, bool inv_flag);
+   void fraigReducePairs();
+   bool fraigReducePairsLoop(int *reducible);
+   int fraigReducePairsDFS(bool *visited, int *reducible, int litid);
+
    void buildRevRef();
-   void buildRevRefDFS(bool *visited, int fromvarid, int varid);
+   void buildRevRefDFS(int &topo, bool *visited, int fromvarid, int varid);
 
    void countFloating();
 

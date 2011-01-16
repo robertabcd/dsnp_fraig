@@ -201,13 +201,18 @@ bool CirMgr::simulate(gateval_t *vin, char **result) {
    int n_patt = sizeof(gateval_t)*8;
    for(int i = 0; i < nOutputs; ++i) {
       gateval_t v = outputs[i]->evaluate();
-      for(int pid = n_patt-1; pid >= 0; --pid) {
-         result[pid][i] = (v & 1) ? '1' : '0';
-         v >>= 1;
+
+      if(result) {
+         for(int pid = n_patt-1; pid >= 0; --pid) {
+            result[pid][i] = (v & 1) ? '1' : '0';
+            v >>= 1;
+         }
       }
    }
-   for(int pid = n_patt-1; pid >= 0; --pid)
-      result[pid][nOutputs] = '\0';
+   if(result) {
+      for(int pid = n_patt-1; pid >= 0; --pid)
+         result[pid][nOutputs] = '\0';
+   }
 
    FecGrouping();
    printf("#FEC groups: %d\r", (int)fec_groups->size());

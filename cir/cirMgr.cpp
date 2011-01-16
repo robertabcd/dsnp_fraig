@@ -309,9 +309,11 @@ bool CirParser::parseFileContent() {
       mgr.mergeTrivial();
    }
 
-   //mgr.initFecGrps();
+   mgr.SatSetupInputs();
 
    mgr.buildRevRef();
+
+   mgr.initFecGroups();
 
    int nxt = ifs.peek();
    while(nxt != EOF) {
@@ -447,10 +449,10 @@ bool CirParser::checkSymbolValid(map<string, int> &tb, const string &strsym) {
       if(!isprint(strsym[i]))
          return printErrorMsgAtLine("symbol name contains chars not printable");
 
-   map<string, int>::iterator it = tb.find(strsym);
-   if(it != tb.end())
-      return printErrorMsgAtLine("redefinition of symbol '%s', previous "
-            "definition at line %d", strsym.c_str(), it->second);
+   //map<string, int>::iterator it = tb.find(strsym);
+   //if(it != tb.end())
+   //   return printErrorMsgAtLine("redefinition of symbol '%s', previous "
+   //         "definition at line %d", strsym.c_str(), it->second);
    return true;
 }
 
@@ -479,7 +481,7 @@ bool CirParser::parseInputSymbol() {
 
    Debug("add symbol %s for PI %d\n", sym, id);
 
-   mgr.symbols_input.insert(make_pair(strsym, line));
+   //mgr.symbols_input.insert(make_pair(strsym, line));
    pi->setSymbol(strsym);
    pi->setSymbolLine(line);
 
@@ -821,25 +823,28 @@ void CirMgr::buildRevRef() {
    }
 
    bool vis[nMaxVar+1+nOutputs];
+   int topo = 0;
 
    memset(vis, 0, sizeof(bool) * (nMaxVar+1+nOutputs));
 
    for(int i = 0; i < nOutputs; ++i)
-      buildRevRefDFS(vis, outputs[i]->getVarId(), outputs[i]->getIN0()/2);
+      buildRevRefDFS(topo, vis, outputs[i]->getVarId(), outputs[i]->getIN0()/2);
 }
 
-void CirMgr::buildRevRefDFS(bool *visited, int fromvarid, int varid) {
+void CirMgr::buildRevRefDFS(int &topo, bool *visited, int fromvarid, int varid) {
    CirVar *v = getVar(varid);
 
    if(!visited[varid]) {
       visited[varid] = true;
       if(v->getType() == AIG_GATE) {
-         buildRevRefDFS(visited, varid, v->getIN0()/2);
-         buildRevRefDFS(visited, varid, v->getIN1()/2);
+         buildRevRefDFS(topo, visited, varid, v->getIN0()/2);
+         buildRevRefDFS(topo, visited, varid, v->getIN1()/2);
       }
    }
 
    rev_ref[v->getVarId()].insert(fromvarid);
+
+   v->setTopologicalOrder(++topo);
 }
 
 void CirMgr::outputAAG(FILE *fp) {

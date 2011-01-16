@@ -49,9 +49,12 @@ class SatSolver
          lits.push(~la); lits.push(~lb); lits.push(lf);
          _solver->addClause(lits); lits.clear();
       }
-      void addXorCNF(Var vf, Var va, Var vb) {
+      // fa/fb = true if it is inverted
+      void addXorCNF(Var vf, Var va, bool fa, Var vb, bool fb) {
          vec<Lit> lits;
-         Lit lf = Lit(vf), la = Lit(va), lb = Lit(vb);
+         Lit lf = Lit(vf);
+         Lit la = fa? ~Lit(va): Lit(va);
+         Lit lb = fb? ~Lit(vb): Lit(vb);
          lits.push(~la); lits.push( lb); lits.push( lf);
          _solver->addClause(lits); lits.clear();
          lits.push( la); lits.push(~lb); lits.push( lf);

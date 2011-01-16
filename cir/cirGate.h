@@ -41,9 +41,11 @@ public:
    CirVar(CirMgr &mgr, int varid): mgr(mgr), id(0), line(0), symline(0),
       ref_count(0), has_symbol(false), is_removed(false) {
       dirty = true;
+      simulating = false;
       val = false;
       in0 = in1 = 0;
       fec_id = 0;
+      topo_ord = 0;
       setVarId(varid);
    }
    virtual ~CirVar() {}
@@ -123,8 +125,14 @@ public:
    void reportFanin(unsigned level) const;
    void reportFanout(unsigned level) const;
 
+   inline void setFecGroup(int id, int lit) { fec_id = id; fec_lit = lit; }
    inline void setFecGroupId(int id) { fec_id = id; }
    inline int  getFecGroupId() const { return fec_id; }
+   inline void setFecLiteral(int lit) { fec_lit = id; }
+   inline int  getFecLiteral() const { return fec_lit; }
+
+   inline void setTopologicalOrder(int ord) { topo_ord = ord; }
+   inline int  getTopologicalOrder() const { return topo_ord; }
 
 protected:
    CirMgr &mgr;
@@ -137,11 +145,13 @@ protected:
 
    int in0, in1;
    gateval_t val;
-   bool dirty;
+   bool dirty, simulating;
 
-   int fec_id;
+   int fec_id, fec_lit;
 
    gateval_t updateValue();
+
+   int topo_ord;
 
    void reportFanoutDFS(int level, int maxlevel, int caller) const;
    void reportFaninDFS(int level, int maxlevel, bool inverted) const;

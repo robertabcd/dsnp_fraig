@@ -32,27 +32,33 @@ void CirVar::setType(GateType t) {
 }
 
 gateval_t CirVar::updateValue() {
+   assert(!simulating);
+
    gateval_t v0;
    dirty = false;
    switch(type) {
       case UNDEF_GATE:
-         return val = false;
+         return val = 0;
       case PI_GATE:
          return val;
       case PO_GATE:
+         simulating = true;
          val = mgr.getVarDirectly(in0>>1)->evaluate();
          if(in0&1) val = ~val;
+         simulating = false;
          return val;
       case AIG_GATE:
+         simulating = true;
          v0 = mgr.getVarDirectly(in0>>1)->evaluate();
          if(in0&1) v0 = ~v0;
          val = mgr.getVarDirectly(in1>>1)->evaluate();
          if(in1&1) val = ~val;
+         simulating = false;
          return val &= v0;
       case CONST_GATE:
-         return val = false;
+         return val = 0;
       default:
-         return val = false;
+         return val = 0;
    }
 }
 
@@ -72,13 +78,9 @@ CirVar::reportGate() const
    printf("= %s\n", buf);
 
    printf("= FECs:");
-   int myid;
+   int myid = getFecLiteral();
    const vector<int> *fec = mgr.getFecGroup(getFecGroupId());
    if(fec) {
-      for(int i = 0, n = fec->size(); i < n; ++i) {
-         myid = fec->at(i);
-         if(getVarId() == (myid>>1)) break;
-      }
       for(int i = 0, n = fec->size(); i < n; ++i) {
          int id = fec->at(i);
          if(id == myid) continue;
