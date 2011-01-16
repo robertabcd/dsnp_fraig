@@ -104,6 +104,7 @@ protected:
    char *getSimHistoryStr() const;
 
    void reportFanoutDFS(int level, int maxlevel, int caller) const;
+   void reportFaninDFS(int level, int maxlevel, bool inverted) const;
 };
 typedef CirVar CirAigGate;
 
@@ -114,7 +115,7 @@ public:
    ~CirConst() {}
 
    GateType getType() const { return CONST_GATE; }
-   string getTypeStr() const { return "CONST0"; }
+   string getTypeStr() const { return "CONST"; }
 
    void resetState() {}
    bool evaluate() { return false; }

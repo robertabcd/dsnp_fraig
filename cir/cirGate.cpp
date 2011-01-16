@@ -93,6 +93,35 @@ CirVar::reportGate() const
 void
 CirVar::reportFanin(unsigned level) const
 {
+   reportFaninDFS(0, level, false);
+}
+
+void CirVar::reportFaninDFS(int level, int maxlevel, bool inverted) const {
+   static set<int> reported;
+
+   if(level > maxlevel) return;
+   if(level == 0) reported.clear();
+
+   int varid = getVarId();
+
+   for(int i = 0; i < level; ++i) printf("  ");
+   printf("%s%s %d", inverted?"!":"", getTypeStr().c_str(), varid);
+   if(hasSymbol()) printf(" (%s)", getSymbol().c_str());
+
+   if(reported.find(varid) == reported.end()) {
+      printf("\n");
+      reported.insert(varid);
+
+      if(getType() == AIG_GATE) {
+         mgr.getVar(getIN0()/2)->reportFaninDFS(level+1, maxlevel, getIN0()&1);
+         mgr.getVar(getIN1()/2)->reportFaninDFS(level+1, maxlevel, getIN1()&1);
+      } else if(getType() == PO_GATE) {
+         mgr.getVar(getIN0()/2)->reportFaninDFS(level+1, maxlevel, getIN0()&1);
+      }
+   } else if(getType() == AIG_GATE)
+      printf(" (*)\n");
+   else
+      printf("\n");
 }
 
 void
@@ -133,7 +162,9 @@ void CirVar::reportFanoutDFS(int level, int maxlevel, int caller) const {
 
          mgr.getVar(*it)->reportFanoutDFS(level + 1, maxlevel, varid);
       }
-   } else
+   } else if(getType() == AIG_GATE)
       printf(" (*)\n");
+   else
+      printf("\n");
 }
 

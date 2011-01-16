@@ -698,9 +698,7 @@ void CirMgr::netlistDFS(int &dfn, bool *visited, const CirVar *v) const {
 
    if(v->getType() == UNDEF_GATE) return;
 
-   printf("[%d] %-3s", dfn++, v->getTypeStr().c_str());
-   if(v->getType() != CONST_GATE)
-      printf(" %d", v->getVarId());
+   printf("[%d] %-3s %d", dfn++, v->getTypeStr().c_str(), v->getVarId());
 
    for(int i = 0; i < n; ++i) {
       int chvarid = v->getDependVar(i);
