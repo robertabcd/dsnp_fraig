@@ -26,7 +26,8 @@ initCirCmd()
          cmdMgr->regCmd("CIRGate", 4, new CirGateCmd) &&
          cmdMgr->regCmd("CIRSTRash", 6, new CirStrashCmd) &&
          cmdMgr->regCmd("CIRSIMulate", 6, new CirSimCmd) &&
-         cmdMgr->regCmd("CIRFraig", 4, new CirFraigCmd)
+         cmdMgr->regCmd("CIRFraig", 4, new CirFraigCmd) &&
+         cmdMgr->regCmd("CIRWrite", 4, new CirWriteCmd)
       )) {
       cerr << "Registering \"cir\" commands fails... exiting" << endl;
       return false;
@@ -42,6 +43,7 @@ enum CirCmdState
    CIRSTRASH,
    CIRSIMULATE,
    CIRFRAIG,
+   CIRWRITE,
    // dummy end
    CIRCMDTOT
 };
@@ -408,5 +410,53 @@ CirFraigCmd::help() const
 {
    cout << setw(15) << left << "CIRFraig: "
         << "perform Boolean logic simulation on the circuit\n";
+}
+
+//----------------------------------------------------------------------
+//    CIRWrite [-Output (string aagFile)]
+//----------------------------------------------------------------------
+CmdExecStatus
+CirWriteCmd::exec(const string& option)
+{
+   if (!cirMgr) {
+      cerr << "Error: circuit is not yet constructed!!" << endl;
+      return CMD_EXEC_ERROR;
+   }
+   // check option
+   vector<string> options;
+   if (!CmdExec::lexOptions(option, options))
+      return CMD_EXEC_ERROR;
+   if (!options.empty()) {
+      if(myStrNCmp("-Output", options[0], 2) != 0)
+         return CmdExec::errorOption(CMD_OPT_ILLEGAL, options[0]);
+      if(options.size() < 2)
+         return CmdExec::errorOption(CMD_OPT_MISSING, "aagFile");
+      if(options.size() > 2)
+         return CmdExec::errorOption(CMD_OPT_EXTRA, options[1]);
+
+      curCmd = CIRWRITE;
+      FILE *fp;
+      fp = fopen(options[1].c_str(), "w");
+      cirMgr->outputAAG(fp);
+      fclose(fp);
+   } else {
+      curCmd = CIRWRITE;
+      cirMgr->outputAAG(stdout);
+   }
+
+   return CMD_EXEC_DONE;
+}
+
+void
+CirWriteCmd::usage(ostream& os) const
+{
+   os << "Usage: CIRWrite [-Output (string aagFile)]" << endl;
+}
+
+void
+CirWriteCmd::help() const
+{
+   cout << setw(15) << left << "CIRWrite: "
+        << "write the netlist to an ASCII AIG file (.aag)" << endl;
 }
 

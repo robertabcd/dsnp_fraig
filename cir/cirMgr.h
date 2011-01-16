@@ -103,6 +103,8 @@ public:
 
    // Member functions about flags
 
+   void outputAAG(FILE *fp);
+
 private:
    bool is_debug;
 
