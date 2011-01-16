@@ -30,7 +30,7 @@ class CirMgr
    friend class CirParser;
 
 public:
-   CirMgr(): _simLog(NULL), fec_groups(NULL) {
+   CirMgr(): _simLog(NULL), rev_ref(NULL), fec_groups(NULL) {
       is_debug = true;
    }
    ~CirMgr() { deleteCircuit(); }
@@ -38,10 +38,20 @@ public:
    // Access functions
    // return '0' if "gid" corresponds to an undefined gate.
    // gid == varid | PO id
-   CirAigGate* getAigGate(unsigned gid) const { return getGate(gid); }
-   CirAigGate* getGate(unsigned gid) const;
+   CirAigGate* getAigGate(unsigned gid) const { return getVar(gid); }
+   CirAigGate* getGate(unsigned gid) const { return getVar(gid); }
 
-   CirVar *getVar(int varid) const { return vars[varid]; }
+   CirVar *getVar(int varid) const {
+      if(varid <= nMaxVar) {
+         if(vars[varid] == NULL || vars[varid]->isRemoved())
+            return NULL;
+         else
+            return vars[varid];
+      } else if(varid <= nMaxVar+nOutputs)
+         return outputs[varid-nMaxVar-1];
+      else
+         return NULL;
+   }
    CirPI  *getPI(int id) const { return inputs[id]; }
    CirPO  *getPO(int id) const { return outputs[id]; }
 
@@ -49,6 +59,11 @@ public:
    int getNumPOs() const { return nOutputs; }
    int getNumGates() const { return nGates; }
    int getMaxVarNum() const { return nMaxVar; }
+
+   const multiset<int> *queryVarRevRef(int idx) const {
+      if(rev_ref) return &rev_ref[idx];
+      else return NULL;
+   }
 
    // Member functions about circuit construction
    bool readCircuit(const string&);
@@ -109,6 +124,8 @@ private:
 
    vector<int> floating_gates, unref_gates;
 
+   multiset<int> *rev_ref;
+
    FECGrp *fec_groups;
 
    void refCountDFS(bool *visited, int varid);
@@ -117,6 +134,9 @@ private:
    int mergeTrivialDFS(bool *visited, int litid);
    int strashDFS(bool *visited, Hash<VarHashKey, int> &h, int litid);
    void initFecGrpsDFS(bool *visited, pair<string, int> *dep_var, int varid);
+
+   void buildRevRef();
+   void buildRevRefDFS(bool *visited, int fromvarid, int varid);
 
    void countFloating();
 

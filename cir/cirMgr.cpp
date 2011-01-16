@@ -295,7 +295,9 @@ bool CirParser::parseFileContent() {
    printf("Merging trivial gates...\n");
    mgr.mergeTrivial();
 
-   mgr.initFecGrps();
+   //mgr.initFecGrps();
+
+   mgr.buildRevRef();
 
    int nxt = ifs.peek();
    while(nxt != EOF) {
@@ -599,6 +601,7 @@ void CirMgr::mergeTrivial() {
       mergeTrivialDFS(vis, gates[i]->getVarId() << 1);
 
    calculateRefCount();
+   buildRevRef();
    removeUnrefGates();
 }
 
@@ -637,18 +640,6 @@ int CirMgr::mergeTrivialDFS(bool *visited, int litid) {
       return in0;
    } else
       return litid;
-}
-
-CirAigGate *CirMgr::getGate(unsigned gid) const {
-   int varid = gid;
-   if(varid <= nMaxVar) {
-      if(vars[varid]->isRemoved())
-         return NULL;
-      else
-         return vars[varid];
-   }
-   if(varid <= nMaxVar+nOutputs) return outputs[varid-nMaxVar-1];
-   return 0;
 }
 
 /*********************
@@ -785,5 +776,35 @@ CirMgr::printFloatGates() const
 void
 CirMgr::printFECPairs() const
 {
+}
+
+void CirMgr::buildRevRef() {
+   if(!rev_ref)
+      rev_ref = new multiset<int>[nMaxVar+1+nOutputs];
+   else {
+      for(int i = 0, n = nMaxVar+1+nOutputs; i < n; ++i)
+         rev_ref[i].clear();
+   }
+
+   bool vis[nMaxVar+1+nOutputs];
+
+   memset(vis, 0, sizeof(bool) * (nMaxVar+1+nOutputs));
+
+   for(int i = 0; i < nOutputs; ++i)
+      buildRevRefDFS(vis, outputs[i]->getVarId(), outputs[i]->getIN0()/2);
+}
+
+void CirMgr::buildRevRefDFS(bool *visited, int fromvarid, int varid) {
+   CirVar *v = getVar(varid);
+
+   if(!visited[varid]) {
+      visited[varid] = true;
+      if(v->getType() == AIG_GATE) {
+         buildRevRefDFS(visited, varid, v->getIN0()/2);
+         buildRevRefDFS(visited, varid, v->getIN1()/2);
+      }
+   }
+
+   rev_ref[v->getVarId()].insert(fromvarid);
 }
 

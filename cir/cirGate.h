@@ -87,8 +87,8 @@ public:
 
    /* reporting */
    virtual void reportGate() const;
-   virtual void reportFanin(unsigned level) const {}
-   virtual void reportFanout(unsigned level) const {}
+   virtual void reportFanin(unsigned level) const;
+   virtual void reportFanout(unsigned level) const;
 
 protected:
    CirMgr &mgr;
@@ -102,6 +102,8 @@ protected:
 
 
    char *getSimHistoryStr() const;
+
+   void reportFanoutDFS(int level, int maxlevel, int caller) const;
 };
 typedef CirVar CirAigGate;
 
@@ -210,8 +212,8 @@ public:
 
    int getIN0() const { return in0; }
    int getIN1() const { return in1; }
-   void setIN0(int in0) { this->in0 = in0; }
-   void setIN1(int in1) { this->in1 = in1; }
+   void setIN0(int in0) { this->in0 = in0; resetState(); }
+   void setIN1(int in1) { this->in1 = in1; resetState(); }
 
    // Methods about circuit construction
    void setFanin(int in0, int in1);
@@ -223,8 +225,6 @@ public:
    // Methods about fraig operation
 
    // Printing functions
-   void reportFanin(unsigned level) const;
-   void reportFanout(unsigned level) const;
 
    // Methods about _globalRef_s
    //bool isGlobalRef() const { return (_ref == _globalRef_s); }

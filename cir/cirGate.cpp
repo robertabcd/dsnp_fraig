@@ -91,13 +91,49 @@ CirVar::reportGate() const
 }
 
 void
-CirGate::reportFanin(unsigned level) const
+CirVar::reportFanin(unsigned level) const
 {
 }
 
 void
-CirGate::reportFanout(unsigned level) const
+CirVar::reportFanout(unsigned level) const
 {
-   printf("report fanout %d\n", getVarId());
+   reportFanoutDFS(0, level, -1);
+}
+
+void CirVar::reportFanoutDFS(int level, int maxlevel, int caller) const {
+   static set<int> reported;
+
+   if(level > maxlevel) return;
+   if(level == 0) reported.clear();
+
+   bool inverted = false;
+   if(getType() == AIG_GATE) {
+      if(getIN0()/2 == caller && (getIN0() & 1)) inverted = true;
+      else if(getIN1()/2 == caller && (getIN1() & 1)) inverted = true;
+   } else if(getType() == PO_GATE) {
+      if(getIN0()/2 == caller && (getIN0() & 1)) inverted = true;
+   }
+
+   int varid = getVarId();
+
+   for(int i = 0; i < level; ++i) printf("  ");
+   printf("%s%s %d", inverted?"!":"", getTypeStr().c_str(), varid);
+   if(hasSymbol()) printf(" (%s)", getSymbol().c_str());
+
+   if(reported.find(varid) == reported.end()) {
+      printf("\n");
+
+      reported.insert(varid);
+
+      const multiset<int> *rev = mgr.queryVarRevRef(getVarId());
+
+      for(multiset<int>::const_iterator it = rev->begin(), ed = rev->end();
+            it != ed; ++it) {
+
+         mgr.getVar(*it)->reportFanoutDFS(level + 1, maxlevel, varid);
+      }
+   } else
+      printf(" (*)\n");
 }
 
