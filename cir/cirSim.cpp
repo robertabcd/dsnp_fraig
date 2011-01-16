@@ -116,6 +116,7 @@ bool CirMgr::simulatePattern(const char *patt, char *result) {
       result[i] = outputs[i]->evaluate() ? '1' : '0';
    result[nOutputs] = '\0';
 
+   return true;
    for(int i = 0; i <= nMaxVar; ++i)
       if(!vars[i]->isRemoved())
          vars[i]->pushSimulatedVal();

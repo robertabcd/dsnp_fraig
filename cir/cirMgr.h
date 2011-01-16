@@ -60,6 +60,8 @@ public:
       else
          return NULL;
    }
+   // this is intended to speed up simulation only!
+   inline CirVar *getVarDirectly(int varid) { return vars[varid]; }
    CirPI  *getPI(int id) const { return inputs[id]; }
    CirPO  *getPO(int id) const { return outputs[id]; }
 

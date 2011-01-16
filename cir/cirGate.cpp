@@ -24,7 +24,7 @@ unsigned int CirVar::s_MaxSimHistory = 32;
 
 bool CirPO::evaluate() {
    if(dirty) {
-      val = mgr.getVar(in0/2)->evaluate();
+      val = mgr.getVarDirectly(in0/2)->evaluate();
       if(in0 & 1) val = !val;
       dirty = false;
    }
@@ -43,12 +43,11 @@ void CirGate::setFanin(int in0, int in1) {
 
 bool CirGate::evaluate() {
    if(dirty) {
-      bool v0 = mgr.getVar(in0/2)->evaluate();
+      bool v0 = mgr.getVarDirectly(in0/2)->evaluate();
       if(in0 & 1) v0 = !v0;
       if(v0) {
-         bool v1 = mgr.getVar(in1/2)->evaluate();
-         if(in1 & 1) v1 = !v1;
-         val = v1;
+         val = mgr.getVarDirectly(in1/2)->evaluate();
+         if(in1 & 1) val = !val;
       } else
          val = false;
       dirty = false;
