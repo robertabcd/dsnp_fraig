@@ -43,6 +43,7 @@ public:
       dirty = true;
       val = false;
       in0 = in1 = 0;
+      fec_id = 0;
       setVarId(varid);
    }
    virtual ~CirVar() {}
@@ -122,6 +123,9 @@ public:
    void reportFanin(unsigned level) const;
    void reportFanout(unsigned level) const;
 
+   inline void setFecGroupId(int id) { fec_id = id; }
+   inline int  getFecGroupId() const { return fec_id; }
+
 protected:
    CirMgr &mgr;
    int id, line, symline, ref_count;
@@ -135,6 +139,7 @@ protected:
    gateval_t val;
    bool dirty;
 
+   int fec_id;
 
    gateval_t updateValue();
 

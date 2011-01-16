@@ -69,16 +69,28 @@ CirVar::reportGate() const
       sprintf(buf, "%s(%d), line %d", getTypeStr().c_str(), 
             getVarId(), getLine());
    }
-   printf("= %-46s =\n", buf);
+   printf("= %s\n", buf);
 
-   sprintf(buf, "FECs: ???");
-   printf("= %-46s =\n", buf);
+   printf("= FECs:");
+   int myid;
+   const vector<int> *fec = mgr.getFecGroup(getFecGroupId());
+   for(int i = 0, n = fec->size(); i < n; ++i) {
+      myid = fec->at(i);
+      if(getVarId() == (myid>>1)) break;
+   }
+   for(int i = 0, n = fec->size(); i < n; ++i) {
+      int id = fec->at(i);
+      if(id == myid) continue;
+      printf(" %s%d", (((id^myid)&1)?"!":""), id>>1);
+   }
+   if(fec->size() == 0) printf("<none>");
+   printf("\n");
 
    sprintf(buf, "Value: ");
    char *p = &buf[strlen(buf)];
    for(int i = sizeof(gateval_t)*8-1; i >= 0; --i)
       *(p++) = ((val >> i) & 1) ? '1' : '0';
-   printf("= %-46s =\n", buf);
+   printf("= %s\n", buf);
 
    printf("==================================================\n");
 }

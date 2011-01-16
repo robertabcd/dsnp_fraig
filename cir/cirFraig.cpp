@@ -65,133 +65,114 @@ int CirMgr::strashDFS(bool *visited, Hash<VarHashKey, int> &h, int litid) {
    }
 }
 
-class cmp_depvar {
-public:
-   bool operator()(const pair<string, int> &a, const pair<string, int> &b) {
-      return a.first < b.first;
-   }
-};
-
 void CirMgr::FecGrouping() {
-   if(!fec_groups) {
-      vector<int> *s = new vector<int>();
-      for(int i = 0; i <= nMaxVar; ++i)
-         s->push_back(i);
+   if(!fec_groups)
+      initFecGroups();
 
-      fec_groups = new FECGrp();
-      fec_groups->push_back(s);
-   }
-
+   // prepare a new container
    FECGrp *fec_new = new FECGrp();
+
+   // use a map to group same values
+   map<gateval_t, vector<int> *> valmap;
 
    while(fec_groups->size() > 0) {
       vector<int> *s = fec_groups->back();
       fec_groups->pop_back();
-      vector<int> *s0 = new vector<int>();
-      vector<int> *s1 = new vector<int>();
 
+      // eventually put gates
       for(vector<int>::iterator it = s->begin(), ed = s->end();
             it != ed; ++it) {
-         if(getVar(*it)->evaluate())
-            s1->push_back(*it);
-         else
-            s0->push_back(*it);
+
+         CirVar *v = vars[(*it)>>1];
+         if(v->isRemoved()) continue;
+
+         map<gateval_t, vector<int> *>::iterator itmap;
+
+         if((itmap = valmap.find(v->evaluate())) != valmap.end()) {
+            // fec eq
+            itmap->second->push_back(v->getVarId()<<1);
+         }
+         else if((itmap = valmap.find(~v->evaluate())) != valmap.end()) {
+            // fec inverted
+            itmap->second->push_back((v->getVarId()<<1)|1);
+         }
+         else {
+            // not exist pattern
+            vector<int> *cont = new vector<int>();
+            cont->push_back(v->getVarId()<<1);
+
+            valmap.insert(make_pair(v->evaluate(), cont));
+         }
       }
 
-      if(s0->size() <= 1)
-         delete s0;
-      else
-         fec_new->push_back(s0);
+      // grab groups we interest in
+      for(map<gateval_t, vector<int> *>::iterator it = valmap.begin(),
+            ed = valmap.end(); it != ed; ++it) {
 
-      if(s1->size() <= 1)
-         delete s1;
-      else
-         fec_new->push_back(s1);
+         vector<int> *cont = it->second;
+
+         assert(cont->size() > 0);
+         if(cont->size() == 1) {
+            // we don't want groups whose #elem=1
+            vars[cont->at(0)>>1]->setFecGroupId(-1);
+
+            delete cont;
+
+         } else {
+            // add them to global group pool
+            int gid = fec_new->size();
+
+            // yah, I have group id now :)
+            for(int i = 0, n = cont->size(); i < n; ++i)
+               vars[cont->at(i)>>1]->setFecGroupId(gid);
+
+            fec_new->push_back(cont);
+         }
+      }
 
       delete s;
+      valmap.clear();
    }
 
-   printf("FEC groups: %d\n", (int)fec_new->size());
-
+   // swap over
+   for(int i = 0, n = fec_groups->size(); i < n; ++i)
+      delete fec_groups->at(i);
    delete fec_groups;
    fec_groups = fec_new;
 }
 
-void CirMgr::initFecGrps() {
-   /*
-   bool vis[nMaxVar+1];
-   pair<string, int> *depend_var = new pair<string, int>[nMaxVar+1];
-   string allzero(nMaxVar+1, '0');
-
-   memset(vis, 0, sizeof(bool) * (nMaxVar+1));
-
-   // init const 0
-   vis[0] = true;
-   depend_var[0] = make_pair(allzero, 0);
-   depend_var[0].first[0] = '1';
-
-   // init all inputs
-   for(int i = 0; i < nInputs; ++i) {
-      int varid = inputs[i]->getVarId();
-      depend_var[varid] = make_pair(allzero, i);
-      depend_var[varid].first[varid] = '1';
-      vis[varid] = true;
+void CirMgr::initFecGroups() {
+   if(!fec_groups) {
+      fec_groups = new FECGrp();
+   } else {
+      // clear container if exists
+      for(int i = 0, n = fec_groups->size(); i < n; ++i)
+         delete fec_groups->at(i);
+      fec_groups->clear();
    }
 
-   // recursively fill in all
-   for(int i = 0; i < nOutputs; ++i)
-      initFecGrpsDFS(vis, depend_var, outputs[i]->getIN0()/2);
+   // put all gates in the same container
+   vector<int> *s = new vector<int>();
 
-   if(is_debug) {
-      for(int i = 0; i <= nMaxVar; ++i)
-         printf("V[%2d] -> %s\n", i, depend_var[i].first.c_str());
+   for(int i = 0; i < nGates; ++i) {
+      s->push_back(gates[i]->getVarId()<<1);
+      gates[i]->setFecGroupId(0);
    }
 
-   sort(depend_var, depend_var+nMaxVar+1, cmp_depvar());
-
-   if(fec_groups) delete fec_groups;
-   fec_groups = new FECGrp();
-
-   int last = 0, curr_grpid = -1;
-   for(int i = 1; i <= nMaxVar; ++i) {
-      if(vars[i]->getType() == AIG_GATE) {
-         if(depend_var[last] != depend_var[i]) {
-            curr_grpid++;
-            fec_groups->push_back(set<int>());
-         }
-         fec_groups->at(curr_grpid).insert(i);
-         last = i;
-      }
-   }
-
-   if(is_debug) {
-      for(int i = 0; i <= curr_grpid; ++i)
-         printf("G[%2d] -> size: %d\n", i, (int)fec_groups->at(i).size());
-   }
-
-   delete[] depend_var;
-   */
+   fec_groups->push_back(s);
 }
 
-void CirMgr::initFecGrpsDFS(bool *visited, 
-      pair<string, int> *dep_var, int varid) {
-   if(visited[varid]) return;
-   visited[varid] = true;
+void CirMgr::printFecGroups() {
+   for(int i = 0, n = fec_groups->size(); i < n; ++i) {
+      vector<int> *s = fec_groups->at(i);
 
-   CirVar *v = vars[varid];
-   if(v->getType() == UNDEF_GATE) {
-      dep_var[varid].first[varid] = '1';
-      return;
+      printf("G[%d] #%d\t->", i, (int)s->size());
+
+      for(int j = 0, sz = s->size(); j < sz; ++j)
+         printf(" %s%d", (s->at(j)&1)?"!":"", s->at(j)>>1);
+
+      printf("\n");
    }
-
-   int v0 = v->getIN0()/2, v1 = v->getIN1()/2;
-   initFecGrpsDFS(visited, dep_var, v0);
-   initFecGrpsDFS(visited, dep_var, v1);
-
-   // bitwise-OR
-   dep_var[varid] = make_pair(dep_var[v0].first, varid);
-   for(int i = 0; i <= nMaxVar; ++i)
-      if(dep_var[v1].first[i] == '1') dep_var[varid].first[i] = '1';
 }
 
 void

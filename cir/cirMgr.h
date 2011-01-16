@@ -110,8 +110,10 @@ public:
    void fraig();
    void setSatEffort(SATSolveEffort ef) { sat_effort = ef; }
 
-   void initFecGrps();
+   void initFecGroups();
    void FecGrouping();
+   const vector<int> *getFecGroup(int i) const { return fec_groups->at(i); }
+   void printFecGroups();
 
    // Member functions about flags
 
@@ -148,7 +150,6 @@ private:
    void netlistDFS(int &dfn, bool *visited, const CirVar *v) const;
    int mergeTrivialDFS(bool *visited, int litid);
    int strashDFS(bool *visited, Hash<VarHashKey, int> &h, int litid);
-   void initFecGrpsDFS(bool *visited, pair<string, int> *dep_var, int varid);
 
    void buildRevRef();
    void buildRevRefDFS(bool *visited, int fromvarid, int varid);
