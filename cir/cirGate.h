@@ -134,6 +134,11 @@ public:
    inline void setTopologicalOrder(int ord) { topo_ord = ord; }
    inline int  getTopologicalOrder() const { return topo_ord; }
 
+   inline void addBlacklist(int v) { fraig_blacklist.insert(v); }
+   inline bool isInBlacklist(int v) const {
+      return fraig_blacklist.find(v) != fraig_blacklist.end();
+   }
+
 protected:
    CirMgr &mgr;
    int id, line, symline, ref_count;
@@ -152,6 +157,8 @@ protected:
    gateval_t updateValue();
 
    int topo_ord;
+
+   set<int> fraig_blacklist;
 
    void reportFanoutDFS(int level, int maxlevel, int caller) const;
    void reportFaninDFS(int level, int maxlevel, bool inverted) const;

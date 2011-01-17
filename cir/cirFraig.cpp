@@ -68,9 +68,11 @@ int CirMgr::strashDFS(bool *visited, Hash<VarHashKey, int> &h, int litid) {
    }
 }
 
-void CirMgr::FecGrouping() {
+int CirMgr::FecGrouping() {
    if(!fec_groups)
       initFecGroups();
+
+   int old_size = fec_groups->size();
 
    // prepare a new container
    FECGrp *fec_new = new FECGrp();
@@ -142,6 +144,8 @@ void CirMgr::FecGrouping() {
       delete fec_groups->at(i);
    delete fec_groups;
    fec_groups = fec_new;
+
+   return fec_groups->size() - old_size;
 }
 
 void CirMgr::initFecGroups() {
@@ -191,10 +195,13 @@ CirMgr::fraig()
 
    //fraigReducePairs();
 
+   int last_fec_grp = fec_groups->size(), now_fec_grp, same_fec_counter = 0;
+
    fraig_dfs_leave = 64;
 
    do {
       sat_merged = 0;
+      fraig_sim_pairs.clear();
 
       SatSetupInputs();
 
@@ -206,14 +213,25 @@ CirMgr::fraig()
       for(int i = 0; i <= nMaxVar; ++i)
          eqlit[i] = i<<1;
 
-      for(int i = 0; i < nOutputs; ++i)
+      for(int i = 0; i < nOutputs; ++i) {
          outputs[i]->setIN0(
                fraigDFS(dfn, visited, eqlit, outputs[i]->getIN0()));
+         if(sat_merged >= fraig_dfs_leave) break;
+      }
 
       calculateRefCount();
       mergeTrivial();
       buildRevRef();
       removeUnrefGates();
+
+      now_fec_grp = fec_groups->size();
+      if(now_fec_grp != last_fec_grp) {
+         last_fec_grp = now_fec_grp;
+         same_fec_counter = 0;
+      } else if(++same_fec_counter > surrender) {
+         // consider irreducible
+         break;
+      }
    } while(sat_merged >= fraig_dfs_leave);
 }
 
@@ -247,8 +265,39 @@ int CirMgr::fraigDFS(int &dfn, bool *visited, int *eqlit, int litid) {
    while(retry) {
       retry = false;
 
-      const vector<int> *s = getFecGroup(v->getFecGroupId());
+      int grpid = v->getFecGroupId();
+      const vector<int> *s = getFecGroup(grpid);
       if(!s) return litid;
+
+      if(grpid == vars[0]->getFecGroupId()) {
+         // check constant 0
+         printf("SAT: %d == 0 ?\r", varid);
+         fflush(stdout);
+         sat_solver.assumeRelease();
+         sat_solver.assumeProperty(sat_var[0], false);
+         sat_solver.assumeProperty(sat_var[varid], true);
+         if(!sat_solver.assumpSolve()) {
+            sat_merged++;
+
+            printf("fraig: <%d> merge %d to 0\n", dfn, varid);
+            eqlit[varid] = 0;
+            return litid&1;
+         }
+
+         // check constant 1
+         printf("SAT: %d == 1 ?\r", varid);
+         fflush(stdout);
+         sat_solver.assumeRelease();
+         sat_solver.assumeProperty(sat_var[0], false);
+         sat_solver.assumeProperty(sat_var[varid], false);
+         if(!sat_solver.assumpSolve()) {
+            sat_merged++;
+
+            printf("fraig: <%d> merge %d to 1\n", dfn, varid);
+            eqlit[varid] = 1;
+            return (litid^1)&1;
+         }
+      }
 
       for(vector<int>::const_iterator it = s->begin(), ed = s->end();
             it != ed; ++it) {
@@ -256,17 +305,23 @@ int CirMgr::fraigDFS(int &dfn, bool *visited, int *eqlit, int litid) {
          if(svarid == varid) continue;
 
          // fec and visited -> solve EQ
-         if(visited[svarid]) {
+         if(visited[svarid] && !vars[svarid]->isInBlacklist(varid)) {
             int inv_flag = ((*it) ^ v->getFecLiteral()) & 1;
 
             if(SatSolveVarEQ(varid, svarid, inv_flag)) {
                // not-EQ, enqueue simulation pattern to separate sets
                SatStoreKeyPattern();
 
+               fraig_sim_pairs.push_back(make_pair(varid, svarid));
+
                // retry now!
                if(SatIsKeyPatternStorageFull()) {
                   retry = true;
                   SatSimulateKeyPatterns();
+
+                  // add pair to blacklist if not separated
+                  SatBlacklistNonseparatedVars();
+
                   break;
                }
             } else {
@@ -397,6 +452,7 @@ bool CirMgr::SatSolveVarEQ(int v0, int v1, bool inv_flag) {
          sat_var[v0], false, sat_var[v1], inv_flag);
 
    sat_solver.assumeRelease();
+   sat_solver.assumeProperty(sat_var[0], false);
    sat_solver.assumeProperty(feq, true);
 
    printf("SAT: %d == %s%d ?\r", v0, inv_flag?"!":"", v1);
@@ -454,13 +510,36 @@ bool CirMgr::SatIsKeyPatternStorageFull() const {
    return sat_keypat_size == (sizeof(gateval_t)*8);
 }
 
-void CirMgr::SatSimulateKeyPatterns() {
+int CirMgr::SatSimulateKeyPatterns() {
    printf("fraig: simulating key patterns\n");
 
-   simulate(sat_keypat, NULL);
+   int ret = simulate(sat_keypat, NULL);
 
    printf("fraig: current #FEC groups: %d\n", (int)fec_groups->size());
 
    sat_keypat_size = 0;
+
+   return ret;
+}
+
+void CirMgr::SatBlacklistNonseparatedVars() {
+   for(vector<pair<int, int> >::iterator it =
+         fraig_sim_pairs.begin(), ed = fraig_sim_pairs.end();
+         it != ed; ++it) {
+
+      if(vars[it->first ]->isRemoved()) continue;
+      if(vars[it->second]->isRemoved()) continue;
+      if(vars[it->first ]->getFecGroupId() != -1 &&
+            vars[it->first ]->getFecGroupId() ==
+            vars[it->second]->getFecGroupId()) {
+
+         vars[it->first ]->addBlacklist(it->second);
+         vars[it->second]->addBlacklist(it->first );
+
+         printf("fraig: %d <-> %d added to blacklist\n",
+               it->first, it->second);
+      }
+   }
+   fraig_sim_pairs.clear();
 }
 

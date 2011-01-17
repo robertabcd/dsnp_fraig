@@ -193,7 +193,7 @@ void CirMgr::pushSimulationPattern(const char *patt, gateval_t *vin) {
       vin[i] = (vin[i] << 1)|(patt[i] == '1'?1:0);
 }
 
-bool CirMgr::simulate(gateval_t *vin, char **result) {
+int CirMgr::simulate(gateval_t *vin, char **result) {
    for(int i = 1; i <= nMaxVar; ++i) vars[i]->resetState();
    for(int i = 0; i < nOutputs; ++i) outputs[i]->resetState();
 
@@ -216,10 +216,10 @@ bool CirMgr::simulate(gateval_t *vin, char **result) {
          result[pid][nOutputs] = '\0';
    }
 
-   FecGrouping();
+   int ret = FecGrouping();
    printf("#FEC groups: %d\r", (int)fec_groups->size());
    fflush(stdout);
 
-   return true;
+   return ret;
 }
 

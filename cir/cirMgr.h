@@ -39,12 +39,20 @@ class CirMgr
    friend class CirParser;
 
 public:
-   CirMgr(): _simLog(NULL), rev_ref(NULL), sat_effort(EFFORT_MED),
-      fec_groups(NULL) {
+   CirMgr() {
+      is_debug = true;
+
+      _simLog = NULL;
+
+      rev_ref = NULL;
+      fec_groups = NULL;
+
       sat_var = NULL;
       sat_keypat = NULL;
       sat_keypat_size = 0;
-      is_debug = true;
+
+      sat_effort = EFFORT_MED;
+      surrender = 20;
    }
    ~CirMgr() { deleteCircuit(); }
 
@@ -113,13 +121,20 @@ public:
    void fileSim(ifstream&);
    bool simulatePattern(const char *patt, char *result);
    void fraig();
-   void setSatEffort(SATSolveEffort ef) { sat_effort = ef; }
+   void setSatEffort(SATSolveEffort ef) {
+      switch(sat_effort = ef) {
+         case EFFORT_LOW: surrender = 5; break;
+         case EFFORT_MED: surrender = 20; break;
+         case EFFORT_HIGH: surrender = 50; break;
+         default: surrender = 100;
+      }
+   }
    void SatStoreKeyPattern();
    inline bool SatIsKeyPatternStorageFull() const;
-   void SatSimulateKeyPatterns();
+   int SatSimulateKeyPatterns();
 
    void initFecGroups();
-   void FecGrouping();
+   int  FecGrouping();
    const vector<int> *getFecGroup(int i) const {
       if(!fec_groups || i < 0 || i >= (int)fec_groups->size())
          return NULL;
@@ -165,6 +180,10 @@ private:
    int sat_merged;
 
    int fraig_dfs_leave;
+   vector<pair<int, int> > fraig_sim_pairs;
+
+   // use for effort setting
+   int surrender;
 
    void refCountDFS(bool *visited, int varid);
    int countValidGates() const;
@@ -172,14 +191,15 @@ private:
    int mergeTrivialDFS(bool *visited, int litid);
    int strashDFS(bool *visited, Hash<VarHashKey, int> &h, int litid);
 
-   int fraigDFS(int &dfn, bool *visited, int *eqlit, int litid);
+   int  fraigDFS(int &dfn, bool *visited, int *eqlit, int litid);
    void SatSetupInputs();
    void SatAddGate(CirVar *v);
    void SatAddGateDFS(bool *visited, CirVar *v);
    bool SatSolveVarEQ(int v0, int v1, bool inv_flag);
+   void SatBlacklistNonseparatedVars();
    void fraigReducePairs();
    bool fraigReducePairsLoop(int *reducible);
-   int fraigReducePairsDFS(bool *visited, int *reducible, int litid);
+   int  fraigReducePairsDFS(bool *visited, int *reducible, int litid);
 
    void buildRevRef();
    void buildRevRefDFS(int &topo, bool *visited, int fromvarid, int varid);
@@ -191,7 +211,7 @@ private:
 
    bool checkSimulationPattern(const char *patt);
    void pushSimulationPattern(const char *patt, gateval_t *vin);
-   bool simulate(gateval_t *vin, char **result);
+   int  simulate(gateval_t *vin, char **result);
 };
 
 class CirParser
