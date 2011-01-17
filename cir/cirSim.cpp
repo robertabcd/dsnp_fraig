@@ -54,7 +54,7 @@ CirMgr::randomSim()
       result[i] = new char[nOutputs+1024];
    }
 
-   int sim, failed_count = 0;
+   int sim = 0, failed_count = 0;
 
    while(failed_count < surrender) {
       sim++;
