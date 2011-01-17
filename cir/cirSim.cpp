@@ -76,7 +76,8 @@ CirMgr::randomSim()
          simulationResult(pattern[i], result[i]);
    }
 
-   printf("#FEC groups: %d\n", (int)fec_groups->size());
+   if(sim > 0 && fec_groups)
+      printf("#FEC groups: %d\n", (int)fec_groups->size());
    printf("%d patterns simulated\n", sim*per_batch);
 
    if(is_debug) printFecGroups();
@@ -160,7 +161,8 @@ void CirMgr::fileSim(ifstream &ifs) {
       in_queue = 0;
    }
 
-   printf("#FEC groups: %d\n", (int)fec_groups->size());
+   if(sim > 0 && fec_groups)
+      printf("#FEC groups: %d\n", (int)fec_groups->size());
    printf("%d pattern(s) simulated\n", sim);
 
    if(is_debug) printFecGroups();

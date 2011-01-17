@@ -313,8 +313,6 @@ bool CirParser::parseFileContent() {
 
    mgr.buildRevRef();
 
-   mgr.initFecGroups();
-
    int nxt = ifs.peek();
    while(nxt != EOF) {
       if(nxt == 'i') {
@@ -646,18 +644,16 @@ int CirMgr::mergeTrivialDFS(bool *visited, int litid) {
    // return direct link if it is trivial
    if(in0 == in1) {
       printf("Merge %d to %d\n", litid, in0);
-      return in0;
-   } else if((in0 ^ in1) == 1) {
-      return 0;
-   } else if(in0 == 0 || in1 == 0) {
-      printf("Merge %d to %d\n", litid, (litid & 1)?1:0);
-      return (litid & 1) ? 1 : 0;
+      return (in0&~1)|((in0^litid)&1);
+   } else if((in0 ^ in1) == 1 || in0 == 0 || in1 == 0) {
+      printf("Merge %d to %d\n", litid, litid&1);
+      return litid&1;
    } else if(in0 == 1) {
       printf("Merge %d to %d\n", litid, in1);
-      return in1;
+      return (in1&~1)|((litid^in1)&1);
    } else if(in1 == 1) {
       printf("Merge %d to %d\n", litid, in0);
-      return in0;
+      return (in0&~1)|((litid^in0)&1);
    } else
       return litid;
 }

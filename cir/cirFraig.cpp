@@ -166,6 +166,11 @@ void CirMgr::initFecGroups() {
 }
 
 void CirMgr::printFecGroups() {
+   if(!fec_groups) {
+      fprintf(stderr, "fec groups: not yet simulated");
+      return;
+   }
+
    for(int i = 0, n = fec_groups->size(); i < n; ++i) {
       vector<int> *s = fec_groups->at(i);
 
