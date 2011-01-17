@@ -54,9 +54,11 @@ CirMgr::randomSim()
       result[i] = new char[nOutputs+1024];
    }
 
-   int sim;
+   int sim, failed_count = 0;
 
-   for(sim = 0; sim < 4; ++sim) {
+   while(failed_count < surrender) {
+      sim++;
+
       for(int i = 0; i < nInputs; ++i)
          vin[i] = rand();
 
@@ -70,7 +72,10 @@ CirMgr::randomSim()
       for(int i = 0; i < per_batch; ++i)
          pattern[i][nInputs] = '\0';
 
-      simulate(vin, result);
+      if(simulate(vin, result) == 0)
+         failed_count++;
+      else
+         failed_count = 0;
 
       for(int i = 0; i < per_batch; ++i)
          simulationResult(pattern[i], result[i]);

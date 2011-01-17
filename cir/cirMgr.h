@@ -55,6 +55,35 @@ public:
       surrender = 20;
    }
    ~CirMgr() { deleteCircuit(); }
+   void deleteCircuit() {
+      if(fec_groups) {
+         for(int i = 0, n = fec_groups->size(); i < n; ++i)
+            delete fec_groups->at(i);
+         delete fec_groups;
+         fec_groups = NULL;
+      }
+
+      if(sat_var) {
+         delete[] sat_var;
+         sat_var = NULL;
+      }
+
+      if(sat_keypat) {
+         delete[] sat_keypat;
+         sat_keypat = NULL;
+      }
+
+      for(int i = 0; i <= nMaxVar; ++i)
+         delete vars[i];
+      delete[] vars;
+      vars = NULL;
+      inputs = NULL;
+
+      for(int i = 0; i < nOutputs; ++i)
+         delete outputs[i];
+      delete[] outputs;
+      outputs = NULL;
+   }
 
    // Access functions
    // return '0' if "gid" corresponds to an undefined gate.
@@ -90,7 +119,6 @@ public:
 
    // Member functions about circuit construction
    bool readCircuit(const string&);
-   void deleteCircuit() { }
 
    bool initCircuit(int M, int I, int L, int O, int A);
    CirVar *addInput(int varid);

@@ -190,6 +190,9 @@ void CirMgr::printFecGroups() {
 void
 CirMgr::fraig()
 {
+   if(!fec_groups)
+      initFecGroups();
+
    bool visited[nMaxVar+1];
    memset(visited, 0, sizeof(bool)*(nMaxVar+1));
 
