@@ -73,16 +73,20 @@ public:
          sat_keypat = NULL;
       }
 
-      for(int i = 0; i <= nMaxVar; ++i)
-         delete vars[i];
-      delete[] vars;
-      vars = NULL;
-      inputs = NULL;
+      if(vars) {
+         for(int i = 0; i <= nMaxVar; ++i)
+            delete vars[i];
+         delete[] vars;
+         vars = NULL;
+         inputs = NULL;
+      }
 
-      for(int i = 0; i < nOutputs; ++i)
-         delete outputs[i];
-      delete[] outputs;
-      outputs = NULL;
+      if(outputs) {
+         for(int i = 0; i < nOutputs; ++i)
+            delete outputs[i];
+         delete[] outputs;
+         outputs = NULL;
+      }
    }
 
    // Access functions
