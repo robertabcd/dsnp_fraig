@@ -40,7 +40,7 @@ class CirMgr
 
 public:
    CirMgr() {
-      is_debug = true;
+      is_debug = false;
 
       _simLog = NULL;
 
@@ -218,7 +218,7 @@ class CirParser
 {
 public:
    CirParser(CirMgr &mgr): mgr(mgr) {
-      is_debug = true;
+      is_debug = mgr.is_debug;
    }
    ~CirParser() {}
 
